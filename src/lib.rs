@@ -72,6 +72,7 @@ use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Buffer;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use unicode_width::UnicodeWidthStr;
 
 mod svg;
 pub use svg::{buffer_to_svg, render_to_svg};
@@ -325,11 +326,20 @@ fn row_width(buf: &Buffer, y: u16) -> u16 {
     w
 }
 
+/// Each row as text. A wide glyph (CJK, most emoji) fills two cells, and the second holds
+/// nothing of its own: it is skipped, as a terminal skips it, so the row reads as it looks.
 fn plain_grid(buf: &Buffer) -> Vec<String> {
     (0..buf.area.height)
         .map(|y| {
             let w = row_width(buf, y);
-            (0..w).map(|x| buf[(x, y)].symbol()).collect()
+            let mut row = String::new();
+            let mut x = 0;
+            while x < w {
+                let symbol = buf[(x, y)].symbol();
+                row.push_str(symbol);
+                x += u16::try_from(symbol.width().max(1)).unwrap_or(1);
+            }
+            row
         })
         .collect()
 }
@@ -551,6 +561,19 @@ mod tests {
         assert_eq!(s.app().clock_ms, 1500);
         let (out, _) = drive_pushed(&["wait soon"]);
         assert!(out.contains("! wait takes milliseconds"), "{out}");
+    }
+
+    #[test]
+    fn a_wide_glyph_reads_as_one_character() {
+        struct Wide;
+        impl HeadlessApp for Wide {
+            fn render(&self, f: &mut Frame) {
+                f.render_widget(Paragraph::new("東京 ok 🎵!"), f.area());
+            }
+            fn handle_key(&mut self, _k: KeyEvent) {}
+        }
+        let buf = render_to_buffer(&Wide, 20, 1);
+        assert_eq!(SnapshotEncoder::new().encode(&buf), ["東京 ok 🎵!"]);
     }
 
     #[test]
