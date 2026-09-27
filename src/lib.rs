@@ -46,8 +46,17 @@
 //!   type <text>    type each character of the rest of the line verbatim.
 //!   snapshot       re-emit the current frame.
 //!   resize <w> <h> change the terminal size.
+//!   wait <ms>      let time pass (see [`HeadlessApp::wait`]), then re-emit.
 //!   quit           exit.
 //! ```
+//!
+//! ## Apps with state of their own
+//!
+//! Not every app changes only when a key is pressed: a client of a server gets replies and
+//! pushes whenever they arrive. [`HeadlessApp::settle`] runs before every frame, so such an app
+//! can absorb what has arrived (and wait for the replies its last key asked for) and the frame
+//! shows the settled state, not a race. `wait <ms>` lets time pass for what happens on its own,
+//! such as a progress bar moving.
 //!
 //! ## Visual output
 //!
@@ -57,6 +66,7 @@
 //! pixel image is required.
 
 use std::io::{self, BufRead, Write};
+use std::time::Duration;
 
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
@@ -94,6 +104,19 @@ pub trait HeadlessApp {
     /// Whether the driver loop should stop after the last key. Default: never.
     fn should_quit(&self) -> bool {
         false
+    }
+
+    /// Bring state up to date with whatever happened outside key handling: the reply to a
+    /// request a key sent, a push from a server, a finished background job. Called before every
+    /// frame is drawn, so a snapshot shows where the app has settled rather than whatever had
+    /// arrived by chance. Default: no-op, for apps whose state only keys change.
+    fn settle(&mut self) {}
+
+    /// Let `duration` pass (the `wait` action), for apps where time itself changes what is
+    /// shown. [`settle`](HeadlessApp::settle) follows, as before any frame. Default: sleep; an
+    /// app with a clock of its own can advance that instead and keep tests instant.
+    fn wait(&mut self, duration: Duration) {
+        std::thread::sleep(duration);
     }
 }
 
@@ -170,8 +193,9 @@ impl<A: HeadlessApp> Session<A> {
         &self.app
     }
 
-    /// Render the current state and write one framed snapshot to `out`.
+    /// Settle the app, render its state and write one framed snapshot to `out`.
     pub fn emit(&mut self, out: &mut impl Write) -> io::Result<()> {
+        self.app.settle();
         let buf = render_to_buffer(&self.app, self.w, self.h);
         let body = self.enc.encode(&buf);
         // In diff mode, emit only changed lines against the previous frame once
@@ -230,15 +254,29 @@ impl<A: HeadlessApp> Session<A> {
         }
         if let Some(rest) = line.strip_prefix("resize ") {
             let mut it = rest.split_whitespace();
-            if let (Some(w), Some(h)) = (it.next(), it.next()) {
-                if let (Ok(w), Ok(h)) = (w.parse::<u16>(), h.parse::<u16>()) {
-                    self.w = w.max(1);
-                    self.h = h.max(1);
-                    self.app.on_resize(self.w, self.h);
-                }
+            if let (Some(w), Some(h)) = (it.next(), it.next())
+                && let (Ok(w), Ok(h)) = (w.parse::<u16>(), h.parse::<u16>())
+            {
+                self.w = w.max(1);
+                self.h = h.max(1);
+                self.app.on_resize(self.w, self.h);
             }
             self.emit(out)?;
             return Ok(true);
+        }
+        if let Some(rest) = line.strip_prefix("wait ") {
+            match rest.trim().parse::<u64>() {
+                Ok(ms) => {
+                    self.app.wait(Duration::from_millis(ms));
+                    self.emit(out)?;
+                    return Ok(!self.app.should_quit());
+                }
+                Err(_) => {
+                    writeln!(out, "! wait takes milliseconds: {line}")?;
+                    out.flush()?;
+                    return Ok(true);
+                }
+            }
         }
         if let Some(rest) = line.strip_prefix("type ") {
             for c in rest.chars() {
@@ -449,6 +487,70 @@ mod tests {
         let c = parse_key("C-c");
         assert_eq!(c.code, KeyCode::Char('c'));
         assert!(c.modifiers.contains(KeyModifiers::CONTROL));
+    }
+
+    /// An app whose state also changes on its own: messages "arrive" in `inbox` and only show
+    /// once settled, and a clock that `wait` advances without sleeping.
+    #[derive(Default)]
+    struct Pushed {
+        inbox: Vec<String>,
+        shown: Vec<String>,
+        clock_ms: u64,
+        settles: usize,
+    }
+
+    impl HeadlessApp for Pushed {
+        fn render(&self, f: &mut Frame) {
+            let text = format!("{} @{}", self.shown.join(","), self.clock_ms);
+            f.render_widget(Paragraph::new(text), f.area());
+        }
+        fn handle_key(&mut self, key: KeyEvent) {
+            // A key "sends a request"; its reply lands later, outside the key handler.
+            if let KeyCode::Char(c) = key.code {
+                self.inbox.push(format!("re:{c}"));
+            }
+        }
+        fn settle(&mut self) {
+            self.settles += 1;
+            self.shown.append(&mut self.inbox);
+        }
+        fn wait(&mut self, duration: Duration) {
+            self.clock_ms += u64::try_from(duration.as_millis()).unwrap();
+            self.inbox.push("tick".into());
+        }
+    }
+
+    fn drive_pushed(script: &[&str]) -> (String, Session<Pushed>) {
+        let mut s = Session::new(
+            Pushed::default(),
+            DriverOpts {
+                width: 30,
+                height: 1,
+                diff: false,
+            },
+        );
+        let mut out: Vec<u8> = Vec::new();
+        s.emit(&mut out).unwrap();
+        for line in script {
+            s.step(line, &mut out).unwrap();
+        }
+        (String::from_utf8(out).unwrap(), s)
+    }
+
+    #[test]
+    fn every_frame_shows_the_settled_state() {
+        let (out, s) = drive_pushed(&["key a", "snapshot"]);
+        assert!(out.contains("\nre:a @0\n"), "{out}");
+        assert_eq!(s.app().settles, 3, "once per frame");
+    }
+
+    #[test]
+    fn wait_lets_time_pass_then_settles() {
+        let (out, s) = drive_pushed(&["wait 1500"]);
+        assert!(out.contains("\ntick @1500\n"), "{out}");
+        assert_eq!(s.app().clock_ms, 1500);
+        let (out, _) = drive_pushed(&["wait soon"]);
+        assert!(out.contains("! wait takes milliseconds"), "{out}");
     }
 
     #[test]

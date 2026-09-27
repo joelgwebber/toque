@@ -50,8 +50,20 @@ key <name>     press one key: a char, or a name (Enter, Esc, Tab, BackTab,
 type <text>    type each character of the rest of the line verbatim.
 snapshot       re-emit the current frame.
 resize <w> <h> change the terminal size.
+wait <ms>      let time pass, then re-emit (see below).
 quit           exit.
 ```
+
+### Apps with state of their own
+
+Not every app changes only when a key is pressed: a client of a server gets replies and pushes
+whenever they arrive. Two optional hooks cover it:
+
+- `settle(&mut self)` runs before every frame, so the app can absorb what has arrived (and wait
+  for the replies its last key asked for). The frame then shows the settled state, not a race.
+- `wait(&mut self, Duration)` is what the `wait <ms>` action calls, for what changes on its own
+  (a progress bar, a clock). It sleeps by default; an app with its own clock can advance that
+  instead, keeping tests instant.
 
 A frame looks like:
 
@@ -88,7 +100,8 @@ wanted — which also lets you control the resolution handed to a vision model.
 
 ## Status
 
-Extracted from the [yaks](https://github.com/rocketsurgery-games/yaks) TUI, which is its first consumer.
+Extracted from the [yaks](https://github.com/rocketsurgery-games/yaks) TUI, its first consumer;
+[canon](https://github.com/jgw/canon)'s TUI is the second.
 Pre-1.0: the API may shift as more apps adopt it.
 
 ## License
