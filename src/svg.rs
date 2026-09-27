@@ -172,6 +172,25 @@ fn text_decl(fill: &str, modi: Modifier) -> Option<String> {
 
 // -- buffer -> svg --------------------------------------------------------
 
+/// A cell's foreground and background as a terminal paints them: reverse video (how ratatui
+/// apps commonly mark a selection) swaps the two, defaults included. `None` is the default.
+fn painted(cell: &ratatui::buffer::Cell) -> (Option<String>, Option<String>) {
+    let (fg, bg) = (hex(cell.fg), hex(cell.bg));
+    if cell.modifier.contains(Modifier::REVERSED) {
+        (
+            Some(bg.unwrap_or_else(|| BG.to_string())),
+            Some(fg.unwrap_or_else(|| FG.to_string())),
+        )
+    } else {
+        (fg, bg)
+    }
+}
+
+/// The modifiers a text run's class carries: reversal is spent on its colours.
+fn text_modifiers(cell: &ratatui::buffer::Cell) -> Modifier {
+    cell.modifier - Modifier::REVERSED
+}
+
 /// Serialize one rendered [`Buffer`] to a standalone SVG document. See the
 /// module docs for the layout strategy.
 pub fn buffer_to_svg(buf: &Buffer) -> String {
@@ -187,12 +206,12 @@ pub fn buffer_to_svg(buf: &Buffer) -> String {
     for y in 0..rows {
         let mut x = 0u16;
         while x < cols {
-            let Some(c) = hex(buf[(x, y)].bg) else {
+            let Some(c) = painted(&buf[(x, y)]).1 else {
                 x += 1;
                 continue;
             };
             let start = x;
-            while x < cols && hex(buf[(x, y)].bg).as_deref() == Some(c.as_str()) {
+            while x < cols && painted(&buf[(x, y)]).1.as_deref() == Some(c.as_str()) {
                 x += 1;
             }
             let cls = classes.bg_class(&c);
@@ -219,13 +238,13 @@ pub fn buffer_to_svg(buf: &Buffer) -> String {
                 x += 1;
                 continue;
             }
-            let fg = cell.fg;
-            let modi = cell.modifier;
+            let fg = painted(cell).0;
+            let modi = text_modifiers(cell);
             let start = x;
             let mut text = String::new();
             while x < cols {
                 let c = &buf[(x, y)];
-                if c.fg != fg || c.modifier != modi {
+                if painted(c).0 != fg || text_modifiers(c) != modi {
                     break;
                 }
                 let s = c.symbol();
@@ -242,7 +261,7 @@ pub fn buffer_to_svg(buf: &Buffer) -> String {
             }
             any = true;
             let px = PAD + start as f32 * CW;
-            let fill = hex(fg).unwrap_or_else(|| FG.to_string());
+            let fill = fg.clone().unwrap_or_else(|| FG.to_string());
             let class_attr = text_decl(&fill, modi)
                 .map(|d| format!(" class=\"{}\"", classes.text_class(&d)))
                 .unwrap_or_default();
@@ -272,4 +291,27 @@ pub fn buffer_to_svg(buf: &Buffer) -> String {
     out.push_str(&format!("<g fill=\"{FG}\">\n{texts}</g>\n"));
     out.push_str("</svg>\n");
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::Rect;
+    use ratatui::style::{Color, Modifier, Style};
+
+    use super::*;
+
+    /// Reverse video, how ratatui apps commonly mark a selection, paints as it does in a
+    /// terminal: the default foreground becomes the row's background, and the text takes the
+    /// background's colour.
+    #[test]
+    fn reverse_video_swaps_the_colours() {
+        let mut buf = Buffer::empty(Rect::new(0, 0, 6, 1));
+        buf.set_string(0, 0, "sel", Style::new().add_modifier(Modifier::REVERSED));
+        buf.set_string(3, 0, "red", Style::new().fg(Color::Red));
+        let svg = buffer_to_svg(&buf);
+        assert!(svg.contains(&format!("fill:{FG}")), "{svg}");
+        assert!(svg.contains(&format!("fill:{BG}")), "{svg}");
+        assert!(!svg.contains("text-decoration"), "no stray modifier: {svg}");
+    }
 }
