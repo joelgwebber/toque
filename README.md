@@ -15,6 +15,71 @@ Because a frame is a pure function of the app plus the terminal size, the output
 good for **agent-driven exploration** of a TUI *and* for `insta`-style **snapshot tests** of any
 ratatui UI.
 
+## What it looks like
+
+Here is a short agent session against the [yaks](https://github.com/joelgwebber/yaks) TUI
+(`yaks tui --headless --size 96x32`), hunting for the yak that is waiting on a human. The agent
+sends one action per line (shown with a leading `>`); toque answers with a framed snapshot.
+Blank rows are trimmed and the state headers abridged (`collapsed=` and `filter=` dropped) here for
+space.
+
+**1. Switch to the Shaving tab.** The `⏳` badge on `yaks-b517` marks a yak that needs a human.
+
+```text
+> key Tab
+=== frame 1 · 96x32 · focus=list · view=🪒 Shaving · cursor=0 · rows=4 · sel=yaks-3901 · blocked=[yaks-70e5] · overlay=none ===
+ 🦬 Hairy (2)   🪒 Shaving (3)   🐑 Shorn (1)   🕒 Recent (6)   ⭐ Starred (0)
+
+ yaks-3901   p1 task     🪒 Coordination substrate for parallel yak-shaving         [coord, git]
+   yaks-b517 p2 feature  🪒 HITL: needs-human frontmatter + inbox surfacing         [cli, ui] ⏳
+   yaks-3677 p3 feature  🪒 TUI doc screenshots via headless buffer->SVG              [ui, docs]
+*  yaks-70e5 p3 feature  🦬 yaks diff <refA> <refB>: ref-generic farm diff                 [cli]
+…
+=== end ===
+```
+
+![Frame 1: the Shaving tab](docs/assets/yaks-session-1.svg)
+
+**2. Move down onto it.** In the text frame only the state header changes (`cursor=1`,
+`sel=yaks-b517`), which is exactly what makes it cheap to diff. The highlighted row is colour, so
+it only shows up in the SVG.
+
+```text
+> key j
+=== frame 2 · 96x32 · focus=list · view=🪒 Shaving · cursor=1 · rows=4 · sel=yaks-b517 · blocked=[yaks-70e5] · overlay=none ===
+ …same body as frame 1…
+=== end ===
+```
+
+![Frame 2: cursor on yaks-b517](docs/assets/yaks-session-2.svg)
+
+**3. Open it.** The header now says `focus=detail`, and the body has the question the yak is waiting
+on (`Needs: human`).
+
+```text
+> key l
+=== frame 3 · 96x32 · focus=detail · view=🪒 Shaving · cursor=1 · rows=4 · sel=yaks-b517 · blocked=[yaks-70e5] · overlay=none · detail_scroll=0 · pinned=no ===
+ 🦬 Hairy (2)   🪒 Shaving (3)   🐑 Shorn (1)   🕒 Recent (6)   ⭐ Starred (0)
+
+◂ Task: yaks-b517
+│
+│ Title:       HITL: needs-human frontmatter + inbox surfacing
+│ Status:      shaving
+│ Needs:       human
+…
+│ ---
+│ ▸ 2026-09-06T11:40:00Z [wtA]
+│ Proposal drafted — see the drawer `inbox` chip. Which glyph should mark a blocked row?
+…
+=== end ===
+```
+
+![Frame 3: the detail pane](docs/assets/yaks-session-3.svg)
+
+The two channels do different jobs. The text frame and its state header are what an agent reads and
+diffs, and it costs few tokens. The SVG is what you look at when colour, selection or layout is the
+question. Both come from the same in-memory buffer, so they never disagree.
+
 ## Quick start
 
 Implement `HeadlessApp`, then drive it:
@@ -101,7 +166,7 @@ wanted — which also lets you control the resolution handed to a vision model.
 ## Status
 
 Extracted from the [yaks](https://github.com/joelgwebber/yaks) TUI, its first consumer;
-[canon](https://github.com/jgw/canon)'s TUI is the second.
+[canon](https://github.com/joelgwebber/canon)'s TUI is the second.
 Pre-1.0: the API may shift as more apps adopt it.
 
 ## License
