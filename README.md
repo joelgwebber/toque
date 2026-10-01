@@ -96,11 +96,11 @@ wanted — which also lets you control the resolution handed to a vision model.
 > visual channel: SVG renders style natively and better, and the semantic style that matters
 > (selection, focus, blocked) already rides in the state header as plain facts. The original
 > evaluation that picked `spans` is kept for the record at
-> [`docs/research/tui-style-eval.md`](https://github.com/rocketsurgery-games/yaks/blob/main/docs/research/tui-style-eval.md).
+> [`docs/research/tui-style-eval.md`](https://github.com/joelgwebber/yaks/blob/main/docs/research/tui-style-eval.md).
 
 ## Status
 
-Extracted from the [yaks](https://github.com/rocketsurgery-games/yaks) TUI, its first consumer;
+Extracted from the [yaks](https://github.com/joelgwebber/yaks) TUI, its first consumer;
 [canon](https://github.com/jgw/canon)'s TUI is the second.
 Pre-1.0: the API may shift as more apps adopt it.
 
