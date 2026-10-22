@@ -156,6 +156,22 @@ after a wide glyph so an emoji can't shove the rest of the row out of column). I
 Markdown/HTML and rasterises cleanly to PNG (e.g. via a headless browser) when a pixel image is
 wanted — which also lets you control the resolution handed to a vision model.
 
+### PNG output (`png` feature)
+
+An SVG still needs a renderer. With the `png` cargo feature (off by default, so the text and SVG
+paths stay light; it pulls in [`resvg`](https://github.com/linebender/resvg)) toque rasterizes
+frames itself:
+
+- `render_to_png(&app, w, h) -> Option<Vec<u8>>` — drive, render and return PNG file bytes.
+- `svg_to_png(svg: &[u8]) -> Option<Vec<u8>>` — PNG bytes for any SVG source.
+- `rasterize_svg(svg: &[u8]) -> Option<Raster>` — straight RGBA8 pixels
+  (`Raster { width, height, rgba }`) for callers that want to decode nothing.
+
+All three return `None` for a malformed SVG. Fonts are **embedded** (DejaVu Sans Mono regular and
+bold, Noto Color Emoji; subset to the glyphs toque frames use, licenses in `assets/fonts/`) and
+system fonts are never loaded, so a frame looks the same on every machine and still has its text
+on a host with no monospace font. A glyph the subset lacks is drawn blank.
+
 > **History.** toque previously offered three *text* style-encodings (`spans`/`interleaved`/
 > `parallel`) that packed per-cell colour into the snapshot. They were retired once SVG became the
 > visual channel: SVG renders style natively and better, and the semantic style that matters

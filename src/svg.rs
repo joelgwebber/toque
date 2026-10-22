@@ -107,7 +107,7 @@ fn xml_escape(s: &str) -> String {
 /// Deduplicated CSS classes: distinct backgrounds and text styles each earn a
 /// short class name (`b0`, `s0`, …) emitted once in a `<style>` block, so the
 /// per-element markup carries a 2–3 char `class=` instead of a full inline
-/// `fill=…`/`font-weight=…`/`opacity=…` string.
+/// `fill=…`/`font-weight=…`/`fill-opacity=…` string.
 #[derive(Default)]
 struct Classes {
     bg: Vec<String>,   // index -> fill hex      ; class name = b{index}
@@ -134,7 +134,8 @@ impl Classes {
     fn style_block(&self) -> String {
         // `white-space:pre` (a CSS property, so it *inherits* — unlike
         // `xml:space`, which Chrome does not inherit from the root) keeps the
-        // multi-space gaps that column alignment depends on.
+        // multi-space gaps that column alignment depends on. resvg ignores the
+        // CSS property, so each `<text>` also carries `xml:space="preserve"`.
         let mut s = String::from("<style>\ntext{white-space:pre}\n");
         for (i, fill) in self.bg.iter().enumerate() {
             s.push_str(&format!(".b{i}{{fill:{fill}}}\n"));
@@ -162,7 +163,7 @@ fn text_decl(fill: &str, modi: Modifier) -> Option<String> {
         parts.push("font-style:italic".into());
     }
     if modi.contains(Modifier::DIM) {
-        parts.push("opacity:.6".into());
+        parts.push("fill-opacity:.6".into());
     }
     if modi.contains(Modifier::UNDERLINED) {
         parts.push("text-decoration:underline".into());
@@ -272,7 +273,9 @@ pub fn buffer_to_svg(buf: &Buffer) -> String {
         }
         if any {
             let py = PAD + y as f32 * CH + BASE;
-            texts.push_str(&format!("<text y=\"{py:.1}\">{body}</text>\n"));
+            texts.push_str(&format!(
+                "<text xml:space=\"preserve\" y=\"{py:.1}\">{body}</text>\n"
+            ));
         }
     }
 
@@ -313,5 +316,27 @@ mod tests {
         assert!(svg.contains(&format!("fill:{FG}")), "{svg}");
         assert!(svg.contains(&format!("fill:{BG}")), "{svg}");
         assert!(!svg.contains("text-decoration"), "no stray modifier: {svg}");
+    }
+
+    /// resvg (the `png` rasterizer) ignores the CSS `white-space:pre` rule, so each row
+    /// also says `xml:space="preserve"`; the CSS rule stays because Chrome needs it.
+    #[test]
+    fn text_rows_preserve_spaces_for_both_chrome_and_resvg() {
+        let mut buf = Buffer::empty(Rect::new(0, 0, 20, 1));
+        buf.set_string(0, 0, "Needs:       human", Style::new());
+        let svg = buffer_to_svg(&buf);
+        assert!(svg.contains("<text xml:space=\"preserve\" y="), "{svg}");
+        assert!(svg.contains("text{white-space:pre}"), "{svg}");
+    }
+
+    /// resvg ignores `opacity` on a `<tspan>`; `fill-opacity` dims the text in both it and
+    /// Chrome.
+    #[test]
+    fn dim_uses_fill_opacity() {
+        let mut buf = Buffer::empty(Rect::new(0, 0, 8, 1));
+        buf.set_string(0, 0, "dim", Style::new().add_modifier(Modifier::DIM));
+        let svg = buffer_to_svg(&buf);
+        assert!(svg.contains(".s0{fill-opacity:.6}"), "{svg}");
+        assert!(!svg.contains("{opacity:"), "{svg}");
     }
 }
