@@ -166,11 +166,31 @@ frames itself:
 - `svg_to_png(svg: &[u8]) -> Option<Vec<u8>>` — PNG bytes for any SVG source.
 - `rasterize_svg(svg: &[u8]) -> Option<Raster>` — straight RGBA8 pixels
   (`Raster { width, height, rgba }`) for callers that want to decode nothing.
+- `svg_to_png_scaled(svg, scale: f32)` / `rasterize_svg_scaled(svg, scale)` — the same at `scale` ×
+  the SVG's size (`2.0` doubles both dimensions; drawn at the final size, so sharper, not
+  upscaled). The unscaled functions are scale `1.0`.
 
-All three return `None` for a malformed SVG. Fonts are **embedded** (DejaVu Sans Mono regular and
-bold, Noto Color Emoji; subset to the glyphs toque frames use, licenses in `assets/fonts/`) and
-system fonts are never loaded, so a frame looks the same on every machine and still has its text
-on a host with no monospace font. A glyph the subset lacks is drawn blank.
+All return `None` for a malformed SVG (and the scaled ones for a `scale` that is not a positive
+finite number). Fonts are **embedded** and system fonts are never loaded, so a frame looks the same
+on every machine and still has its text on a host with no monospace font:
+
+- **DejaVu Sans Mono**, four faces (regular, bold, oblique, bold oblique), so `Modifier::BOLD` and
+  `Modifier::ITALIC` draw. Covers Basic Latin, Latin-1, Latin Extended-A, General Punctuation,
+  Arrows, Mathematical Operators, Miscellaneous Technical, Box Drawing, Block Elements, Geometric
+  Shapes, Miscellaneous Symbols, Dingbats and Braille Patterns (borrowed from DejaVu Sans, shifted
+  into the mono cell), plus currency, letterlike and super/subscript symbols. Every face covers the
+  same codepoints, so one symbol never changes the face of the text around it.
+- **Noto Color Emoji** (COLRv1), a common subset (~250 emoji: emoticons, status marks such as
+  ✅ ❌ ⭐ ⚡, hands, files and tools, animals). Skin tones, flags and ZWJ sequences are not
+  included: a sequence draws as its parts.
+- A character no embedded face has (Powerline/Nerd Font glyphs, CJK, rarer emoji) draws as a
+  **box** (DejaVu's `.notdef`), never blank, so a hole in a frame is visible. DejaVu has no
+  Powerline glyphs, and no other font is embedded.
+
+The subsets are generated, not hand-made: `scripts/subset_fonts.py` lists the ranges, downloads
+the pinned sources (DejaVu 2.34, Noto Color Emoji COLRv1) and runs `pyftsubset`'s subsetter;
+`--emoji base` builds the full Unicode 15 base emoji set (1.8 MB instead of 0.25 MB). Licenses and
+provenance are in `assets/fonts/`.
 
 > **History.** toque previously offered three *text* style-encodings (`spans`/`interleaved`/
 > `parallel`) that packed per-cell colour into the snapshot. They were retired once SVG became the

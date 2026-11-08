@@ -78,7 +78,9 @@ use unicode_width::UnicodeWidthStr;
 mod raster;
 mod svg;
 #[cfg(feature = "png")]
-pub use raster::{Raster, rasterize_svg, render_to_png, svg_to_png};
+pub use raster::{
+    Raster, rasterize_svg, rasterize_svg_scaled, render_to_png, svg_to_png, svg_to_png_scaled,
+};
 pub use svg::{buffer_to_svg, render_to_svg};
 
 /// The seam a headless-drivable app implements.
