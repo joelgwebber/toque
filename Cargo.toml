@@ -13,8 +13,12 @@ readme = "README.md"
 ratatui = "0.30"
 unicode-width = "0.2"
 resvg = { version = "0.48", default-features = false, features = ["text"], optional = true }
+terminal-colorsaurus = { version = "1.0.3", optional = true }
 
 [features]
 # Rasterize frames to PNG with embedded fonts (see `src/png.rs`). Off by default:
 # text and svg snapshots stay dependency-light.
 png = ["dep:resvg"]
+# Background bands derived from the terminal's own colours (see `src/theme.rs`): the
+# live-terminal side of a ratatui app, so off by default too.
+theme = ["dep:terminal-colorsaurus"]

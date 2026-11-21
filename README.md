@@ -192,6 +192,31 @@ the pinned sources (DejaVu 2.34, Noto Color Emoji COLRv1) and runs `pyftsubset`'
 `--emoji base` builds the full Unicode 15 base emoji set (1.8 MB instead of 0.25 MB). Licenses and
 provenance are in `assets/fonts/`.
 
+## For the live terminal
+
+toque also holds the parts our ratatui apps share when they run in a real terminal, each behind a
+cargo feature so a consumer pulls in only what it uses.
+
+### Theme surfaces (`theme` feature)
+
+A highlight band (a selected row, a line cursor, a pinned header) has to be a background, and any
+fixed grey is wrong on one of dark or light terminals. `toque::theme` derives the bands from the
+terminal's own colours instead: its background blended a little toward its foreground.
+
+- `theme::init("MYAPP_THEME")` — once at startup, in raw mode, before reading any event. It
+  asks the terminal for its colours (OSC 10/11, via
+  [`terminal-colorsaurus`](https://github.com/bash/terminal-colorsaurus)); `MYAPP_THEME=dark|light`
+  overrides, and `COLORFGBG` is the fallback, then dark.
+- `theme::selected()` / `theme::band()` — the strong and the quiet band, as a `Color`: truecolor
+  when `COLORTERM` says so, else the nearest xterm-256 index.
+- `theme::with_terminal(bg, fg, || ...)` — draw as if the terminal had these colours (per thread),
+  for tests and doc frames of a light theme.
+
+Without `init` (tests, headless frames) the bands are the dark greys `Indexed(237)` and
+`Indexed(236)`, so snapshots never depend on the machine. The rule that goes with it: foregrounds
+stay the 16 ANSI colours, named by role in the app's own palette, so the user's theme picks the
+hues.
+
 > **History.** toque previously offered three *text* style-encodings (`spans`/`interleaved`/
 > `parallel`) that packed per-cell colour into the snapshot. They were retired once SVG became the
 > visual channel: SVG renders style natively and better, and the semantic style that matters

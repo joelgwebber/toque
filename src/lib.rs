@@ -77,6 +77,8 @@ use unicode_width::UnicodeWidthStr;
 #[cfg(feature = "png")]
 mod raster;
 mod svg;
+#[cfg(feature = "theme")]
+pub mod theme;
 #[cfg(feature = "png")]
 pub use raster::{
     Raster, rasterize_svg, rasterize_svg_scaled, render_to_png, svg_to_png, svg_to_png_scaled,
