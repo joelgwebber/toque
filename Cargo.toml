@@ -22,3 +22,6 @@ png = ["dep:resvg"]
 # Background bands derived from the terminal's own colours (see `src/theme.rs`): the
 # live-terminal side of a ratatui app, so off by default too.
 theme = ["dep:terminal-colorsaurus"]
+# A command table for an app's keys: bindings, vim / standard families, user overrides, and
+# the help generated from them (see `src/keys.rs`). No dependencies beyond ratatui.
+keys = []

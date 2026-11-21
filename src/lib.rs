@@ -74,6 +74,8 @@ use ratatui::buffer::Buffer;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use unicode_width::UnicodeWidthStr;
 
+#[cfg(feature = "keys")]
+pub mod keys;
 #[cfg(feature = "png")]
 mod raster;
 mod svg;

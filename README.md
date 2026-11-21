@@ -217,6 +217,29 @@ Without `init` (tests, headless frames) the bands are the dark greys `Indexed(23
 stay the 16 ANSI colours, named by role in the app's own palette, so the user's theme picks the
 hues.
 
+### Command table (`keys` feature)
+
+One table binds every key of an app's non-modal surfaces, and the lookup, the `?` popup, the full
+reference and the bottom hint are all generated from it, so a key cannot be bound without being
+listed. The app defines its commands, contexts and row kinds; `toque::keys` is the mechanism.
+
+- Implement `keys::Context` for the app's surfaces and `keys::Command` for its commands: a
+  dotted `name()` (`queue.remove`), a `group_title()` for the popup, whether it `mutates()`, and
+  `bindings()`, a static table of `keys::bind(ctx, &[c('j'), k(Down)], Cmd::Down, "help", hint)`
+  (and `bind_kind` for a binding that applies to one kind of row).
+- A `Keymap<Cmd>` is the table in effect: `lookup(ctx, kind, &key_event)` dispatches;
+  `popup_entries` + `popup_lines` draw the `?` popup; `reference(&km, sections, extras)` the full
+  reference; `hint_for` the bottom bar.
+- Two key families, `Family::Vim` and `Family::Standard`: vim-only keys (`hjkl`, `d`/`u`, `g`/`G`,
+  `Ctrl-N`/`Ctrl-P`) are off in standard and `Ctrl-F` is off in vim, so every command needs a key
+  both share (an arrow beside a `j`).
+- `Keymap::load(path, default_family)` reads the user's overrides from a `keys:` map in their
+  config file (`view.next: ["Ctrl-L"]`, or `keys: standard` for the family), and reports what it
+  could not use in one line.
+- `keys::rules` holds the table's rules as checks for the app's tests: no two bindings share a
+  key, every command is bound and named, every key parses from its label, lowercase only looks
+  (Shift changes), and every command stays bound in both families.
+
 > **History.** toque previously offered three *text* style-encodings (`spans`/`interleaved`/
 > `parallel`) that packed per-cell colour into the snapshot. They were retired once SVG became the
 > visual channel: SVG renders style natively and better, and the semantic style that matters
