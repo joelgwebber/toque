@@ -1,7 +1,7 @@
 ---
 id: yak-d206
 title: 'Image pane: graphics protocol or half-blocks, zoom and pan'
-status: shaving
+status: shorn
 type: task
 priority: 3
 created: '2026-11-21T04:22:16Z'
@@ -24,3 +24,9 @@ moved: hairy -> shaving
 *delta:Canon UI v2*
 
 Landed: toque 640993f (pushed): image feature (ImageView::new/render/zoom/pan, Zoom, Picker re-export; 4 unit tests incl. half-block colours and pan clamping) plus headless svg <path>/png <path> actions (tests: writes SVG, png says what it needs, unknown action lists actions). yaks switched in yaks-20a5 (b16f161f): all image-viewer tests pass, docshots byte-identical to main.
+
+#### 2026-11-21T18:27:53Z
+
+*delta:Canon UI v2 · kind: move · from: shaving · to: shorn · thread: ksQQ8ThW0PX0SAyxtEBqIr2N1ZLOAHSsupIBxBCA0aLJyrhJPreUvVwLftHG*
+
+moved: shaving -> shorn
