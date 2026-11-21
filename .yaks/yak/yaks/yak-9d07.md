@@ -1,11 +1,11 @@
 ---
 id: yak-9d07
 title: 'keys: the popup keeps its columns when one help line is long'
-status: shaving
+status: shorn
 type: task
 priority: 3
 created: '2026-11-21T16:38:51Z'
-updated: '2026-11-21T19:59:05Z'
+updated: '2026-11-21T19:59:06Z'
 parent: yak-2107
 ---
 
@@ -22,3 +22,9 @@ moved: hairy -> shaving
 *delta:Canon UI v2*
 
 Landed in toque 3575652: when no row count fits at full width, columns are held to half the width and long help lines are cut with an ellipsis. Test one_long_help_line_cuts_itself_rather_than_collapsing_the_popup fails without the fix, passes with it. yaks' popup snapshots unchanged.
+
+#### 2026-11-21T19:59:06Z
+
+*delta:Canon UI v2 · kind: move · from: shaving · to: shorn · thread: ksQQ8ThW0PX0SAyxtEBqIr2N1ZLOAHSsupIBxBCA0aLJyrhJPreUvVwLftHG*
+
+moved: shaving -> shorn
