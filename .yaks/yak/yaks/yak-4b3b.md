@@ -5,7 +5,7 @@ status: shaving
 type: task
 priority: 2
 created: '2026-11-21T04:22:15Z'
-updated: '2026-11-21T05:02:27Z'
+updated: '2026-11-21T05:11:22Z'
 parent: yak-2107
 ---
 
@@ -24,3 +24,9 @@ moved: hairy -> shaving
 *tui-design*
 
 Committed as ed595ee (and a separate cargo fmt of src/raster.rs, b84b9af). Both consumers are switched over in their working trees and pass against it; they can land once toque main is pushed.
+
+#### 2026-11-21T05:11:22Z
+
+*tui-design*
+
+Landed: toque ed595ee (pushed). Consumers switched: yaks 3a7789c3 (yaks-67ef, snapshots and the surfaces docshot unchanged), canon aec29b2 (canon-5781, Joel checked it live).
