@@ -1,7 +1,7 @@
 ---
 id: yak-4b3b
 title: 'Theme surfaces: selection bands from the terminal''s own colours'
-status: shaving
+status: shorn
 type: task
 priority: 2
 created: '2026-11-21T04:22:15Z'
@@ -30,3 +30,9 @@ Committed as ed595ee (and a separate cargo fmt of src/raster.rs, b84b9af). Both 
 *tui-design*
 
 Landed: toque ed595ee (pushed). Consumers switched: yaks 3a7789c3 (yaks-67ef, snapshots and the surfaces docshot unchanged), canon aec29b2 (canon-5781, Joel checked it live).
+
+#### 2026-11-21T05:11:22Z
+
+*tui-design · kind: move · from: shaving · to: shorn · thread: ksQQ8ThW0PX0SAyxtEBqIr2N1ZLOAHSsupIBxBCA0aLJyrhJPreUvVwLftHG*
+
+moved: shaving -> shorn
