@@ -73,7 +73,11 @@ fn render_pixmap(svg: &[u8], scale: f32) -> Option<Pixmap> {
     let size = tree.size();
     let px = |len: f32| (len * scale).ceil() as u32;
     let mut pixmap = Pixmap::new(px(size.width()), px(size.height()))?;
-    resvg::render(&tree, Transform::from_scale(scale, scale), &mut pixmap.as_mut());
+    resvg::render(
+        &tree,
+        Transform::from_scale(scale, scale),
+        &mut pixmap.as_mut(),
+    );
     Some(pixmap)
 }
 
@@ -227,7 +231,11 @@ mod tests {
             };
             let plain = tail(&with("x"));
             for lead in ["│", "┌", "⣿", "●", "→"] {
-                assert_eq!(plain, tail(&with(lead)), "{lead} in {style} changed the face");
+                assert_eq!(
+                    plain,
+                    tail(&with(lead)),
+                    "{lead} in {style} changed the face"
+                );
             }
         }
     }
