@@ -16,3 +16,9 @@ popup_lines picks the fewest rows whose columns fit the width, so one help line 
 *delta:Canon UI v2 · kind: move · from: hairy · to: shaving · thread: ksQQ8ThW0PX0SAyxtEBqIr2N1ZLOAHSsupIBxBCA0aLJyrhJPreUvVwLftHG*
 
 moved: hairy -> shaving
+
+#### 2026-11-21T19:59:05Z
+
+*delta:Canon UI v2*
+
+Landed in toque 3575652: when no row count fits at full width, columns are held to half the width and long help lines are cut with an ellipsis. Test one_long_help_line_cuts_itself_rather_than_collapsing_the_popup fails without the fix, passes with it. yaks' popup snapshots unchanged.
