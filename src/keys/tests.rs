@@ -304,3 +304,23 @@ fn the_popup_groups_by_purpose_and_folds_into_columns() {
     let short = text(&popup_lines(&groups, 30, 3, "see the reference"));
     assert!(short.contains(" more: see the reference"), "{short}");
 }
+
+#[test]
+fn one_long_help_line_cuts_itself_rather_than_collapsing_the_popup() {
+    let long = "a help line long enough to take most of the room by itself, and then some";
+    let groups: PopupGroups = vec![
+        ("Move", (0..8).map(|i| (format!("k{i}"), "short")).collect()),
+        (
+            "App",
+            vec![("q".to_string(), long), ("?".to_string(), "help")],
+        ),
+    ];
+    let lines = popup_lines(&groups, 60, 7, "more");
+    let shown = text(&lines);
+    assert!(
+        !shown.contains(" more: "),
+        "everything fits in two columns: {shown}"
+    );
+    assert!(shown.contains('…'), "the long line is cut: {shown}");
+    assert!(lines.iter().all(|l| l.width() <= 60), "{shown}");
+}

@@ -44,6 +44,8 @@
 //!                  BackTab, Space, Backspace, Up/Down/Left/Right, Home, End,
 //!                  PageUp, PageDown, Delete). Prefix `C-` for Ctrl (e.g. C-c).
 //!   type <text>    type each character of the rest of the line verbatim.
+//!   click <c> <r>  a left click at column c, row r (0-based); dclick, two of them.
+//!   scroll up|down <c> <r>  one wheel notch over that cell.
 //!   snapshot       re-emit the current frame.
 //!   resize <w> <h> change the terminal size.
 //!   wait <ms>      let time pass (see [`HeadlessApp::wait`]), then re-emit.
@@ -76,9 +78,12 @@ use std::time::Duration;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Buffer;
-use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use ratatui::crossterm::event::{
+    KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
+};
 use unicode_width::UnicodeWidthStr;
 
+pub mod hits;
 #[cfg(feature = "image")]
 pub mod image;
 #[cfg(feature = "keys")]
@@ -118,6 +123,9 @@ pub trait HeadlessApp {
     fn state_header(&self) -> String {
         String::new()
     }
+
+    /// Apply one mouse event (the `click`, `dclick` and `scroll` actions). Default: ignored.
+    fn handle_mouse(&mut self, _event: MouseEvent) {}
 
     /// Whether the driver loop should stop after the last key. Default: never.
     fn should_quit(&self) -> bool {
@@ -296,6 +304,37 @@ impl<A: HeadlessApp> Session<A> {
                 }
             }
         }
+        for (verb, kinds) in [
+            ("click ", &[MouseEventKind::Down(MouseButton::Left)][..]),
+            (
+                "dclick ",
+                &[
+                    MouseEventKind::Down(MouseButton::Left),
+                    MouseEventKind::Down(MouseButton::Left),
+                ][..],
+            ),
+            ("scroll up ", &[MouseEventKind::ScrollUp][..]),
+            ("scroll down ", &[MouseEventKind::ScrollDown][..]),
+        ] {
+            if let Some(rest) = line.strip_prefix(verb) {
+                let mut it = rest.split_whitespace().map(str::parse::<u16>);
+                let (Some(Ok(column)), Some(Ok(row))) = (it.next(), it.next()) else {
+                    writeln!(out, "! {}takes a column and a row: {line}", verb)?;
+                    out.flush()?;
+                    return Ok(true);
+                };
+                for kind in kinds {
+                    self.app.handle_mouse(MouseEvent {
+                        kind: *kind,
+                        column,
+                        row,
+                        modifiers: KeyModifiers::NONE,
+                    });
+                }
+                self.emit(out)?;
+                return Ok(!self.app.should_quit());
+            }
+        }
         if let Some(path) = line
             .strip_prefix("svg ")
             .or_else(|| line.strip_prefix("png "))
@@ -343,7 +382,8 @@ impl<A: HeadlessApp> Session<A> {
 }
 
 /// The protocol's actions, as the reply to an unknown one lists them.
-const ACTIONS: &str = "key, type, snapshot, resize, wait, svg <path>, png <path>, quit";
+const ACTIONS: &str = "key, type, click <col> <row>, dclick <col> <row>, scroll up|down <col> <row>, \
+     snapshot, resize, wait, svg <path>, png <path>, quit";
 
 #[cfg(feature = "png")]
 fn png_of(svg: &str) -> Option<Vec<u8>> {
@@ -472,6 +512,12 @@ mod tests {
         fn should_quit(&self) -> bool {
             self.quit
         }
+        fn handle_mouse(&mut self, event: MouseEvent) {
+            // A click adds its column, so a test can see where it landed.
+            if event.kind == MouseEventKind::Down(MouseButton::Left) {
+                self.n += u32::from(event.column);
+            }
+        }
     }
 
     fn session(diff: bool) -> Session<Dummy> {
@@ -569,6 +615,21 @@ mod tests {
             "saving prints no frame: {said}"
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn click_and_dclick_reach_the_app_at_their_cell() {
+        let mut s = session(false);
+        let mut out: Vec<u8> = Vec::new();
+        s.step("click 5 0", &mut out).unwrap();
+        assert_eq!(s.app().n, 5);
+        s.step("dclick 2 0", &mut out).unwrap();
+        assert_eq!(s.app().n, 9, "two clicks");
+        s.step("scroll down 1 0", &mut out).unwrap();
+        assert_eq!(s.app().n, 9, "a scroll is not a click");
+        s.step("click x", &mut out).unwrap();
+        let said = String::from_utf8(out).unwrap();
+        assert!(said.contains("! click takes a column and a row"), "{said}");
     }
 
     #[test]

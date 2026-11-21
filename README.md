@@ -113,6 +113,8 @@ key <name>     press one key: a char, or a name (Enter, Esc, Tab, BackTab,
                Space, Backspace, Up/Down/Left/Right, Home, End, PageUp,
                PageDown, Delete). Prefix `C-` for Ctrl (e.g. C-c).
 type <text>    type each character of the rest of the line verbatim.
+click <c> <r>  a left click at column c, row r (0-based); dclick, two.
+scroll up|down <c> <r>  one wheel notch over that cell.
 snapshot       re-emit the current frame.
 resize <w> <h> change the terminal size.
 wait <ms>      let time pass, then re-emit (see below).
@@ -205,6 +207,13 @@ The subsets are generated, not hand-made: `scripts/subset_fonts.py` lists the ra
 the pinned sources (DejaVu 2.34, Noto Color Emoji COLRv1) and runs `pyftsubset`'s subsetter;
 `--emoji base` builds the full Unicode 15 base emoji set (1.8 MB instead of 0.25 MB). Licenses and
 provenance are in `assets/fonts/`.
+
+### Mouse (`HeadlessApp::handle_mouse`, `toque::hits`)
+
+`click`, `dclick` and `scroll` reach the app's `handle_mouse` as the crossterm events a terminal
+would send. `hits::HitMap<K>` is the pattern for answering them without recomputing layout:
+render clears it and records each rect it drew with a key (`record`, or `record_rows` for a
+scrolled list), and the handler asks `at(column, row)` what was there.
 
 ## For the live terminal
 

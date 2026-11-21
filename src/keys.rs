@@ -692,8 +692,8 @@ pub fn popup_lines(
         }
         cols
     };
-    // A column's key width and its whole width.
-    let widths = |col: &[&PopupRow]| {
+    // A column's key width and its whole width, held to `cap` (a long help line is cut).
+    let widths_capped = |col: &[&PopupRow], cap: usize| {
         let (mut kw, mut nw, mut hw) = (0, 0, 0);
         for r in col {
             match r {
@@ -704,18 +704,28 @@ pub fn popup_lines(
                 }
             }
         }
-        (kw, (kw + 1 + nw).max(hw))
+        (kw, (kw + 1 + nw).max(hw).min(cap.max(kw + 2)))
     };
-    let total = |rows: usize| {
-        let cols: Vec<_> = columns(rows).iter().map(|c| widths(c).1).collect();
+    let total = |rows: usize, cap: usize| {
+        let cols: Vec<_> = columns(rows)
+            .iter()
+            .map(|c| widths_capped(c, cap).1)
+            .collect();
         cols.iter().sum::<usize>() + GAP * cols.len().saturating_sub(1)
     };
     if items.is_empty() || max_rows == 0 {
         return Vec::new();
     }
-    let rows = (1..=max_rows)
-        .find(|&r| total(r) <= width)
-        .unwrap_or(max_rows);
+    // The fewest rows that fit at full width; when none does (one long line makes every column
+    // wide), hold each column to what two would get and cut the long lines, rather than show
+    // one column and hide the rest.
+    let fits = |cap: usize| (1..=max_rows).find(|&r| total(r, cap) <= width);
+    let half = width.saturating_sub(GAP) / 2;
+    let (rows, cap) = match fits(usize::MAX) {
+        Some(rows) => (rows, usize::MAX),
+        None => (fits(half).unwrap_or(max_rows), half),
+    };
+    let widths = |col: &[&PopupRow]| widths_capped(col, cap);
     let mut cols: Vec<Vec<&PopupRow>> = Vec::new();
     let mut used = 0;
     for col in columns(rows) {
@@ -745,8 +755,15 @@ pub fn popup_lines(
                         spans.push(Span::styled(format!("{title:<w$}"), title_style()));
                     }
                     Some(PopupRow::Entry(keys, name)) => {
+                        let room = w - kw - 1;
+                        let name = if len(name) > room {
+                            let cut: String = name.chars().take(room.saturating_sub(1)).collect();
+                            format!("{cut}…")
+                        } else {
+                            (*name).to_owned()
+                        };
                         spans.push(Span::styled(format!("{keys:<kw$}"), key_style()));
-                        spans.push(Span::raw(format!(" {name:<0$}", w - kw - 1)));
+                        spans.push(Span::raw(format!(" {name:<room$}")));
                     }
                     None => spans.push(Span::raw(" ".repeat(w))),
                 }
