@@ -47,8 +47,13 @@
 //!   snapshot       re-emit the current frame.
 //!   resize <w> <h> change the terminal size.
 //!   wait <ms>      let time pass (see [`HeadlessApp::wait`]), then re-emit.
+//!   svg <path>     write the current frame, with colour, as SVG to <path>.
+//!   png <path>     the same as PNG (needs the `png` feature).
 //!   quit           exit.
 //! ```
+//!
+//! `svg` and `png` are how a human sees what a script saw: attach one rendered frame of the
+//! state a change is about to its review or task, beside the text frames.
 //!
 //! ## Apps with state of their own
 //!
@@ -74,6 +79,8 @@ use ratatui::buffer::Buffer;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use unicode_width::UnicodeWidthStr;
 
+#[cfg(feature = "image")]
+pub mod image;
 #[cfg(feature = "keys")]
 pub mod keys;
 #[cfg(feature = "png")]
@@ -289,6 +296,13 @@ impl<A: HeadlessApp> Session<A> {
                 }
             }
         }
+        if let Some(path) = line
+            .strip_prefix("svg ")
+            .or_else(|| line.strip_prefix("png "))
+        {
+            self.save(&line[..3], path.trim(), out)?;
+            return Ok(true);
+        }
         if let Some(rest) = line.strip_prefix("type ") {
             for c in rest.chars() {
                 self.app
@@ -302,10 +316,43 @@ impl<A: HeadlessApp> Session<A> {
             self.emit(out)?;
             return Ok(!self.app.should_quit());
         }
-        writeln!(out, "! unknown action: {line}")?;
+        writeln!(out, "! unknown action: {line} (actions: {ACTIONS})")?;
         out.flush()?;
         Ok(true)
     }
+
+    /// `svg <path>` / `png <path>`: write the settled frame, rendered with colour, to `path`, and
+    /// say so in one line (no frame: the last one printed is what was written).
+    fn save(&mut self, format: &str, path: &str, out: &mut impl Write) -> io::Result<()> {
+        self.app.settle();
+        let svg = buffer_to_svg(&render_to_buffer(&self.app, self.w, self.h));
+        let bytes = match format {
+            "svg" => Some(svg.into_bytes()),
+            _ => png_of(&svg),
+        };
+        let said = match bytes {
+            None => "! png needs toque's `png` feature; `svg <path>` works without it".to_owned(),
+            Some(bytes) => match std::fs::write(path, bytes) {
+                Ok(()) => format!("=== wrote {path} ==="),
+                Err(e) => format!("! couldn't write {path}: {e}"),
+            },
+        };
+        writeln!(out, "{said}")?;
+        out.flush()
+    }
+}
+
+/// The protocol's actions, as the reply to an unknown one lists them.
+const ACTIONS: &str = "key, type, snapshot, resize, wait, svg <path>, png <path>, quit";
+
+#[cfg(feature = "png")]
+fn png_of(svg: &str) -> Option<Vec<u8>> {
+    svg_to_png(svg.as_bytes())
+}
+
+#[cfg(not(feature = "png"))]
+fn png_of(_svg: &str) -> Option<Vec<u8>> {
+    None
 }
 
 /// Drive an app from stdin, emitting a framed snapshot to stdout after each
@@ -489,6 +536,48 @@ mod tests {
         assert!(out.contains(" · full · "));
         assert!(out.contains(" · diff · "));
         assert!(out.contains("\nL")); // at least one L<i>: changed-line label
+    }
+
+    #[test]
+    fn svg_writes_the_frame_with_colour_and_png_says_what_it_needs() {
+        let dir = std::env::temp_dir().join(format!("toque-save-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let svg_path = dir.join("frame.svg");
+        let mut s = session(false);
+        let mut out: Vec<u8> = Vec::new();
+        assert!(
+            s.step(&format!("svg {}", svg_path.display()), &mut out)
+                .unwrap()
+        );
+        let svg = std::fs::read_to_string(&svg_path).unwrap();
+        assert!(svg.starts_with("<svg"), "{svg}");
+        let png_path = dir.join("frame.png");
+        s.step(&format!("png {}", png_path.display()), &mut out)
+            .unwrap();
+        let said = String::from_utf8(out).unwrap();
+        assert!(
+            said.contains(&format!("=== wrote {} ===", svg_path.display())),
+            "{said}"
+        );
+        if cfg!(feature = "png") {
+            assert!(std::fs::read(&png_path).unwrap().starts_with(b"\x89PNG"));
+        } else {
+            assert!(said.contains("png needs toque's `png` feature"), "{said}");
+        }
+        assert!(
+            !said.contains("=== frame"),
+            "saving prints no frame: {said}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn an_unknown_action_lists_the_ones_there_are() {
+        let mut s = session(false);
+        let mut out: Vec<u8> = Vec::new();
+        s.step("screenshot x.png", &mut out).unwrap();
+        let said = String::from_utf8(out).unwrap();
+        assert!(said.contains("svg <path>"), "{said}");
     }
 
     #[test]

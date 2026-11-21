@@ -14,6 +14,8 @@ ratatui = "0.30"
 unicode-width = "0.2"
 resvg = { version = "0.48", default-features = false, features = ["text"], optional = true }
 terminal-colorsaurus = { version = "1.0.3", optional = true }
+ratatui-image = { version = "11.1", default-features = false, features = ["crossterm"], optional = true }
+image = { version = "0.25", default-features = false, optional = true }
 
 [features]
 # Rasterize frames to PNG with embedded fonts (see `src/png.rs`). Off by default:
@@ -25,3 +27,7 @@ theme = ["dep:terminal-colorsaurus"]
 # A command table for an app's keys: bindings, vim / standard families, user overrides, and
 # the help generated from them (see `src/keys.rs`). No dependencies beyond ratatui.
 keys = []
+# A picture in a pane, zoomed and panned (see `src/image.rs`): the terminal's graphics protocol
+# when it has one, half-blocks headless. Decoding is the app's: enable the `image` crate's
+# format features it needs.
+image = ["dep:ratatui-image", "dep:image"]

@@ -116,8 +116,22 @@ type <text>    type each character of the rest of the line verbatim.
 snapshot       re-emit the current frame.
 resize <w> <h> change the terminal size.
 wait <ms>      let time pass, then re-emit (see below).
+svg <path>     write the current frame, with colour, as SVG to <path>.
+png <path>     the same as PNG (needs the `png` feature).
 quit           exit.
 ```
+
+`svg` and `png` print one `=== wrote <path> ===` line instead of a frame, and an unknown action is
+answered with the list of actions there are.
+
+### Evidence for people
+
+Text frames are for scripts and diffs; a person reviewing a change wants to *see* it. When a
+change touches what a toque app draws, end the script that shows the new state with
+`svg target/<name>.svg` and attach that file (or its PNG) to the review, task or design doc the
+change belongs to: one rendered frame per UI change, beside the text log. An app's own `AGENTS.md`
+or docs should say the same next to its headless instructions, since a dependency's README is not
+something its users' agents read.
 
 ### Apps with state of their own
 
@@ -216,6 +230,21 @@ Without `init` (tests, headless frames) the bands are the dark greys `Indexed(23
 `Indexed(236)`, so snapshots never depend on the machine. The rule that goes with it: foregrounds
 stay the 16 ANSI colours, named by role in the app's own palette, so the user's theme picks the
 hues.
+
+### Image pane (`image` feature)
+
+A picture in a pane, zoomed and panned: over the terminal's graphics protocol (kitty, sixel,
+iTerm2) through [`ratatui-image`](https://github.com/benjajaja/ratatui-image) when it speaks one,
+as half-block cells otherwise. Headless, it is always half-blocks, which are ordinary coloured
+cells, so a picture shows in text, SVG and PNG frames like anything else.
+
+- `image::ImageView::new(dynamic_image, &picker)`: the app decodes (enable the `image` crate's
+  format features it needs) and owns the header and the keys.
+- `view.render(frame, area)` draws the window; `zoom_step(up)`, `set_zoom(Zoom::Fit |
+  Zoom::FitWidth | Zoom::Scale(f))` and `pan(dx, dy)` move it; `zoom_label()` and `pannable()`
+  feed a status line.
+- `Picker::from_query_stdio()` once at startup in a live terminal (raw mode, before reading
+  events); `Picker::halfblocks()` in tests and headless runs.
 
 ### Command table (`keys` feature)
 
