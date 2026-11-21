@@ -5,7 +5,7 @@ status: shaving
 type: task
 priority: 2
 created: '2026-11-21T04:22:15Z'
-updated: '2026-11-21T04:54:59Z'
+updated: '2026-11-21T05:02:27Z'
 parent: yak-2107
 ---
 
@@ -18,3 +18,9 @@ Done when yaks uses it with unchanged snapshots and canon replaces its `Indexed(
 *tui-design · kind: move · from: hairy · to: shaving · thread: ksQQ8ThW0PX0SAyxtEBqIr2N1ZLOAHSsupIBxBCA0aLJyrhJPreUvVwLftHG*
 
 moved: hairy -> shaving
+
+#### 2026-11-21T05:02:27Z
+
+*tui-design*
+
+Committed as ed595ee (and a separate cargo fmt of src/raster.rs, b84b9af). Both consumers are switched over in their working trees and pass against it; they can land once toque main is pushed.
