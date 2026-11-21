@@ -629,6 +629,25 @@ pub fn reference<M: Command>(
     lines
 }
 
+/// The reference's `sections` as popup groups, for [`popup_lines`] to fold into columns: each
+/// section's title, then each of its bindings that has a help line, as its effective keys and
+/// that line. A section with nothing to list is left out. For an app whose whole reference fits
+/// a popup, so it has no separate scrolling reference.
+#[must_use]
+pub fn help_groups<M: Command>(km: &Keymap<M>, sections: &[Section<M>]) -> PopupGroups {
+    sections
+        .iter()
+        .filter_map(|sect| {
+            let entries: Vec<_> = sect
+                .bindings()
+                .filter(|b| !b.help.is_empty() && km.keys(b).next().is_some())
+                .map(|b| (km.labels(b, " "), b.help))
+                .collect();
+            (!entries.is_empty()).then_some((sect.title, entries))
+        })
+        .collect()
+}
+
 /// One line of the popup before it is laid out in columns.
 enum PopupRow<'a> {
     Head(&'static str),
@@ -638,9 +657,14 @@ enum PopupRow<'a> {
 /// The `?` popup's lines: `groups` (a title, then its keys and names) laid out in columns of at
 /// most `max_rows` rows, as many as fit in `width`, filling down each column in turn (a title
 /// never ends a column, away from its entries). Entries that do not fit are counted on a last
-/// line.
+/// line, `… N more: {more}`, where `more` says where to find them.
 #[must_use]
-pub fn popup_lines(groups: &PopupGroups, width: usize, max_rows: usize) -> Vec<Line<'static>> {
+pub fn popup_lines(
+    groups: &PopupGroups,
+    width: usize,
+    max_rows: usize,
+    more: &str,
+) -> Vec<Line<'static>> {
     const GAP: usize = 2;
     let len = |s: &str| s.chars().count();
     let items: Vec<PopupRow> = groups
@@ -732,10 +756,7 @@ pub fn popup_lines(groups: &PopupGroups, width: usize, max_rows: usize) -> Vec<L
         .collect();
     if shown < total_entries {
         lines.push(Line::from(Span::styled(
-            format!(
-                "… {} more: the full reference has them all",
-                total_entries - shown
-            ),
+            format!("… {} more: {more}", total_entries - shown),
             quiet_style(),
         )));
     }

@@ -253,6 +253,41 @@ fn the_reference_lists_each_section_then_the_extras() {
 }
 
 #[test]
+fn help_groups_list_each_sections_helped_bindings_with_their_keys() {
+    let sections = [
+        Section::<Cmd> {
+            ctx: Ctx::Pane,
+            kinds: &[None],
+            title: "Pane",
+        },
+        Section::<Cmd> {
+            ctx: Ctx::List,
+            kinds: &[Some(Kind::Track)],
+            title: "Track rows",
+        },
+    ];
+    let groups = help_groups(&Keymap::<Cmd>::default(), &sections);
+    // The track row's `q` has no help line, so only `D` is listed.
+    assert_eq!(
+        groups,
+        [
+            (
+                "Pane",
+                vec![
+                    ("Esc".to_string(), "Back to the list"),
+                    ("j ↓".to_string(), "Down"),
+                    ("k ↑".to_string(), "Up"),
+                    ("q Ctrl-C".to_string(), "Quit"),
+                ]
+            ),
+            ("Track rows", vec![("D".to_string(), "Remove the track")]),
+        ]
+    );
+    let std = help_groups(&Keymap::<Cmd>::new(Family::Standard), &sections);
+    assert_eq!(std[0].1[1], ("↓".to_string(), "Down"));
+}
+
+#[test]
 fn the_popup_groups_by_purpose_and_folds_into_columns() {
     let km = Keymap::<Cmd>::default();
     let groups = km.popup_entries(Ctx::List, Some(Kind::Album));
@@ -261,11 +296,11 @@ fn the_popup_groups_by_purpose_and_folds_into_columns() {
     // As few rows as fit the width: narrow, one tall column (a line per title and entry);
     // wide, side-by-side columns; narrow and short, it counts what it left out.
     let entries: usize = groups.iter().map(|(_, e)| e.len()).sum();
-    assert_eq!(popup_lines(&groups, 24, 40).len(), entries + groups.len());
-    assert!(popup_lines(&groups, 200, 40).len() < entries);
-    let short = text(&popup_lines(&groups, 30, 3));
-    assert!(
-        short.contains("more: the full reference has them all"),
-        "{short}"
+    assert_eq!(
+        popup_lines(&groups, 24, 40, "").len(),
+        entries + groups.len()
     );
+    assert!(popup_lines(&groups, 200, 40, "").len() < entries);
+    let short = text(&popup_lines(&groups, 30, 3, "see the reference"));
+    assert!(short.contains(" more: see the reference"), "{short}");
 }
